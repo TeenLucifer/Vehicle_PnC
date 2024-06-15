@@ -24,7 +24,7 @@ class VehicleBaseModel:
         self.y_cartesian = 0.0          # 车辆笛卡尔坐标系y坐标
         self.psi = 0.0                  # 航向角
         self.delta = 0.0                # 前轮转向角
-        self.dt = 0.1                   # 离散时间
+        self.dt = 0.01                  # 离散时间
 
     def normalize_angle(self, angle):
         a = math.fmod(angle + np.pi, 2 * np.pi)
@@ -82,8 +82,55 @@ class VehicleBaseModel:
         axis.plot(vehicle_outline[0, :], vehicle_outline[1, :], color)
         # ax.axis('equal')
 
-# 车辆侧向动力学模型
+# 补充说明：非线性不那么强，可以用泰勒展开进行线性化并控制
+class KinematicModel_Rear(VehicleBaseModel):
+    def __init__(self, x = 0.0, y = 0.0, psi = 0.0, v = 0.0, dt = 0.01):
+        super().__init__()
+
+        self.x_cartesian = x
+        self.y_cartesian = y
+        self.psi = psi
+        self.v = v
+        self.dt = dt
+
+        self.nx = 3
+        self.nu = 2
+        self.state_X = np.matrix([[self.x_cartesian], [self.y_cartesian], [self.psi]])
+
+    # 真实模型和数学模型的状态更新
+    def model_update(self, u):
+        # 车辆真实模型的状态更新
+        #self.v = u[0, 0]
+        #self.delta = np.clip(u[1, 0], -self.MWA, self.MWA)
+        self.delta = u[1, 0]
+
+        x_dot = self.v * math.cos(self.psi)
+        y_dot = self.v * math.sin(self.psi)
+        psi_dot = self.v / self.L * math.tan(self.delta)
+
+        self.x_cartesian = self.x_cartesian + x_dot * self.dt
+        self.y_cartesian = self.y_cartesian + y_dot * self.dt
+        self.psi = self.psi + psi_dot * self.dt
+        self.psi = self.normalize_angle(self.psi)
+
+        self.state_X = np.mat([[self.x_cartesian], [self.y_cartesian], [self.psi]])
+
+    def state_space_model(self, delta_ref, psi_ref):
+        A = np.mat([
+            [0.0, 0.0, -self.v * math.sin(psi_ref)],
+            [0.0, 0.0, self.v * math.cos(psi_ref)],
+            [0.0, 0.0, 0.0]])
+
+        B = np.mat([
+            [math.cos(psi_ref), 0],
+            [math.sin(psi_ref), 0],
+            [math.tan(delta_ref) / self.L, self.v / (self.L * math.cos(delta_ref) * math.cos(delta_ref))]
+        ])
+        return A, B
+
+# 车辆侧向运动学模型，以车辆中心为车辆中心
 # 输入：前轮转向角delta
+# 补充说明：非线性太强，车辆侧偏角beta耦合了delta，不好进行线性化并控制
 class LateralKinematicModel(VehicleBaseModel):
     def __init__(self, x = 0.0, y = 0.0, psi = 0.0, v = 0.0):
         super().__init__()
@@ -147,3 +194,14 @@ class LateralDynamicModel(VehicleBaseModel):
 
     def set_ax(self, ax):
         self.ax = ax
+
+    def A(self):
+        A = np.mat([[0, 1, 0, 0], 
+        [0, -(2 * self.Cf + 2 * self.Cr) / (self.m * self.vx), 0, -(self.vx + (2 * self.Cf * self.Lf - 2 * self.Cr * self.Lr) / (self.m * self.vx))], 
+        [0, 0, 0, 1],
+        [0, -(2 * self.Lf * self.Cf - 2 * self.Lr * self.Cr) / (self.Iz * self.vx), 0, -(2 * self.Lf ** 2 * self.Cf + 2 * self.Lr ** 2 * self.Cr) / (self.Iz * self.vx)]])
+        return A
+
+    def B(self):
+        B = np.mat([[0, 2 * self.Cf / self.m, 0, 2 * self.Lf * self.Cf / self.Iz]]).T
+        return B

@@ -1,1 +1,4 @@
 __pycache__/*
+.vscode/*
+./vehicle_model/__pycache__/*
+./lqr/__pycache__/*
