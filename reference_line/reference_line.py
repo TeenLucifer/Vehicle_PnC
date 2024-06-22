@@ -1,3 +1,4 @@
+import math
 import numpy as np
 
 def normalize_angle(angle):
@@ -14,7 +15,7 @@ class MyReferencePath:
         # set reference trajectory
         # refer_path包括4维：位置x, 位置y， 轨迹点的切线方向, 曲率k 
         self.refer_path = np.zeros((1000, 4))
-        self.refer_path[:,0] = np.linspace(0, 100, 1000) # x
+        self.refer_path[:,0] = np.linspace(0, 50, 1000) # x
         self.refer_path[:,1] = 2*np.sin(self.refer_path[:,0]/3.0)+2.5*np.cos(self.refer_path[:,0]/2.0) # y
         # 使用差分的方式计算路径点的一阶导和二阶导，从而得到切线方向和曲率
         for i in range(len(self.refer_path)):

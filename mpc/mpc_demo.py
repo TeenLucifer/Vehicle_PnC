@@ -15,16 +15,16 @@ sys.path.append(reference_line_dir)
 
 from vehicle_model import KinematicModel_Rear
 from reference_line import MyReferencePath
-from lqr import DiscreteLQR
+from mpc import MPC
 
 # 是否保存动图
 IS_SAVE_GIF = True
 
-# 一个二阶不稳定系统的LQR控制演示demo
-def dlqr_main():
+# 一个二阶不稳定系统的MPC控制演示demo
+def mpc_main():
     # 系统矩阵（这个demo的系统本身不稳定，需要引入反馈控制才能稳定）
     A = np.matrix([[1, 2],
-                  [0, -1]])
+                   [0, -1]])
     B = np.matrix([[0], [1]])
 
     # 时间范围
@@ -37,22 +37,24 @@ def dlqr_main():
     nu = B.shape[1]
     Ad = np.eye(nx) + A * dt
     Bd = B * dt
-    Q = np.matrix(np.eye(nx))
-    R = np.matrix(np.eye(nu))
-    dlqr = DiscreteLQR(Ad, Bd, Q, R)
-    if(False == dlqr.solve()):
-        print("LQR求解失败")
-        return
+    Q = np.matrix([[100, 0], 
+                   [0, 1]])
+    R = 0.1 * np.matrix(1)
+    Qf = np.matrix([[1, 0], 
+                    [0, 1]])
+
+    mpc = MPC(Ad, Bd, Q, R, Qf, N = 10)
 
     # 初始状态
     np.random.seed(0)  # 为了可重复性
-    x0 = np.matrix(np.random.randn(2)).T
+    x0 = np.matrix([-0.1, 0]).T
 
-    # LQR控制下的系统状态更新
+    # MPC控制下的系统状态更新
     x_ctrl = np.matrix(np.zeros((2, num_steps + 1)))
     x_ctrl[:, 0] = x0
     for k in range(num_steps):
-        u = -dlqr.K * x_ctrl[:, k]
+        u_list = mpc.solve(x_ctrl[:, k], Ad, Bd, Q, R, Qf, 10)
+        u = u_list[0]
         x_ctrl[:, k + 1] = Ad * x_ctrl[:, k] + Bd * u
 
     # 无控制下的系统状态更新
@@ -63,7 +65,7 @@ def dlqr_main():
         x_no_ctrl[:, k + 1] = Ad * x_no_ctrl[:, k] + Bd * u
 
     # 绘制结果
-    # 带LQR控制的系统状态
+    # 带MPC控制的系统状态
     plt.figure(figsize=(10, 6))
     plt.plot(time, np.asarray(x_ctrl[0, :]).reshape(-1), label='x1(t)')
     plt.plot(time, np.asarray(x_ctrl[1, :]).reshape(-1), label='x2(t)')
@@ -84,8 +86,8 @@ def dlqr_main():
     plt.grid(True)
     plt.show()
 
-# 以车辆后轴中心为中心的车辆运动学模型的LQR控制演示demo
-def vehicle_dlqr_main():
+# 以车辆后轴中心为中心的车辆运动学模型的MPC控制演示demo
+def vehicle_mpc_main():
     # 时间范围
     T = 100
     dt = 0.1
@@ -101,7 +103,8 @@ def vehicle_dlqr_main():
     vehicle = KinematicModel_Rear(0.0, 0.0, 0.0, 2.0, dt)
     Q = np.matrix(np.eye(vehicle.nx) * 3)
     R = np.matrix(np.eye(vehicle.nu) * 2)
-    dlqr = DiscreteLQR(np.matrix(np.eye(vehicle.nx)), np.matrix(np.eye(vehicle.nu)), Q, R)
+    Qf = np.matrix(np.eye(vehicle.nx) * 3)
+    mpc = MPC(np.eye(vehicle.nx), np.eye(vehicle.nu), Q, R, Qf, N = 10)
 
     if True == IS_SAVE_GIF:
         camera = Camera(fig)
@@ -118,15 +121,12 @@ def vehicle_dlqr_main():
         Ad = np.eye(nx) + A * dt
         Bd = B * dt
 
-        # 更新LQR控制器的系统矩阵并求解最优控制量
-        dlqr.update_mat(Ad, Bd, Q, R)
-        if(False == dlqr.solve()):
-            print("LQR求解失败")
-            return
-        u = -dlqr.K * (vehicle.state_X - reference_path.refer_path[s0, 0:3].reshape(-1, 1))
+        # 更新MPC控制器的系统矩阵并求解最优控制量
+        u_list = mpc.solve((vehicle.state_X - reference_path.refer_path[s0, 0:3].reshape(-1, 1)), Ad, Bd, Q, R, Qf, 10)
+        u = np.matrix(u_list[0 : nu]).T
         u[1, 0] = u[1, 0] + delta_ref
 
-        # LQR控制下的系统状态更新
+        # MPC控制下的系统状态更新
         vehicle.model_update(u)
 
         # 显示动图
@@ -148,7 +148,7 @@ def vehicle_dlqr_main():
             camera.snap()
 
         # 判断是否到达最后一个点
-        if np.linalg.norm([vehicle.x_cartesian, vehicle.y_cartesian] - goal) <= 0.1:
+        if np.linalg.norm([vehicle.x_cartesian, vehicle.y_cartesian] - goal) <= 0.5:
             print("reach goal")
             break
     if True == IS_SAVE_GIF:
@@ -158,11 +158,10 @@ def vehicle_dlqr_main():
         elif platform.system() == "Linux":
             animation.save(current_dir + '/trajectory.gif', writer = 'imagemagick')
 
-
 if __name__ == "__main__":
 
-    # 一个二阶不稳定系统的LQR控制演示demo
-    #dlqr_main()
+    # 一个二阶不稳定系统的MPC控制演示demo
+    #mpc_main()
 
-    # 以车辆后轴中心为中心的车辆运动学模型的LQR控制演示demo
-    vehicle_dlqr_main()
+    # 以车辆后轴中心为中心的车辆运动学模型的MPC控制演示demo
+    vehicle_mpc_main()

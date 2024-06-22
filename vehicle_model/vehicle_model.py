@@ -95,7 +95,7 @@ class KinematicModel_Rear(VehicleBaseModel):
 
         self.nx = 3
         self.nu = 2
-        self.state_X = np.matrix([[self.x_cartesian], [self.y_cartesian], [self.psi]])
+        self.state_X = np.asmatrix([[self.x_cartesian], [self.y_cartesian], [self.psi]])
 
     # 真实模型和数学模型的状态更新
     def model_update(self, u):
@@ -113,15 +113,15 @@ class KinematicModel_Rear(VehicleBaseModel):
         self.psi = self.psi + psi_dot * self.dt
         self.psi = self.normalize_angle(self.psi)
 
-        self.state_X = np.mat([[self.x_cartesian], [self.y_cartesian], [self.psi]])
+        self.state_X = np.asmatrix([[self.x_cartesian], [self.y_cartesian], [self.psi]])
 
     def state_space_model(self, delta_ref, psi_ref):
-        A = np.mat([
+        A = np.asmatrix([
             [0.0, 0.0, -self.v * math.sin(psi_ref)],
             [0.0, 0.0, self.v * math.cos(psi_ref)],
             [0.0, 0.0, 0.0]])
 
-        B = np.mat([
+        B = np.asmatrix([
             [math.cos(psi_ref), 0],
             [math.sin(psi_ref), 0],
             [math.tan(delta_ref) / self.L, self.v / (self.L * math.cos(delta_ref) * math.cos(delta_ref))]
@@ -196,12 +196,12 @@ class LateralDynamicModel(VehicleBaseModel):
         self.ax = ax
 
     def A(self):
-        A = np.mat([[0, 1, 0, 0], 
+        A = np.asmatrix([[0, 1, 0, 0], 
         [0, -(2 * self.Cf + 2 * self.Cr) / (self.m * self.vx), 0, -(self.vx + (2 * self.Cf * self.Lf - 2 * self.Cr * self.Lr) / (self.m * self.vx))], 
         [0, 0, 0, 1],
         [0, -(2 * self.Lf * self.Cf - 2 * self.Lr * self.Cr) / (self.Iz * self.vx), 0, -(2 * self.Lf ** 2 * self.Cf + 2 * self.Lr ** 2 * self.Cr) / (self.Iz * self.vx)]])
         return A
 
     def B(self):
-        B = np.mat([[0, 2 * self.Cf / self.m, 0, 2 * self.Lf * self.Cf / self.Iz]]).T
+        B = np.asmatrix([[0, 2 * self.Cf / self.m, 0, 2 * self.Lf * self.Cf / self.Iz]]).T
         return B

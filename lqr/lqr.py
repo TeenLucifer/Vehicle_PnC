@@ -8,7 +8,7 @@ class DiscreteLQR:
         self.Q = Q
         self.R = R
         self.P = Q # 给个初始值Q
-        self.K = np.mat(np.zeros([Bd.shape[1], Bd.shape[0]]))
+        self.K = np.matrix(np.zeros([Bd.shape[1], Bd.shape[0]]))
         self.epsilon = epsilon
     
     # 离散LQR迭代求解，给定一个P的初值，迭代更新P和K，直到收敛
@@ -19,9 +19,9 @@ class DiscreteLQR:
             if (abs(P_ - self.P).max() < self.epsilon):
                 break
             self.P = P_
-        #if (it == MAX_ITER - 1):
-        #    print("Maximum iteration reached.")
-        #    return False
+        if (it == MAX_ITER - 1):
+            print("Maximum iteration reached.")
+            return False
         self.K = (self.R + self.Bd.T * self.P * self.Bd).I * self.Bd.T * self.P * self.Ad
         return True
 
