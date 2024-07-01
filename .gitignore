@@ -2,5 +2,6 @@ __pycache__/*
 .vscode/*
 lqr/__pycache__/*
 mpc/__pycache__/*
+pid/__pycache__/*
 vehicle_model/__pycache__/*
 reference_line/__pycache__/*
